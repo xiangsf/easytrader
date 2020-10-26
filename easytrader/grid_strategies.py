@@ -197,11 +197,11 @@ class Xls(BaseStrategy):
                     if edit_ctrl.exists(timeout=0.2) and static_ctrl.exists(timeout=0.2):
                         is_ok = True
                         break
-                self.wait(0.2)
+                time.sleep(0.2)
             if is_ok:
                 break
             else:
-                self.wait(0.4)
+                time.sleep(0.4)
                 #w = self._trader.app.top_window()
                 #w.dump_tree()
         if not is_ok:
@@ -212,17 +212,25 @@ class Xls(BaseStrategy):
 
         # alt+s保存，alt+y替换已存在的文件
         self._trader.app.top_window().Edit1.set_edit_text(temp_path)
-        self._trader.wait(0.1)
-        self._trader.app.top_window().type_keys("%{s}%{y}", set_foreground=False)
-        # Wait until file save complete otherwise pandas can not find file
         self._trader.wait(0.2)
-        if self._trader.is_exist_pop_dialog():
-            self._trader.app.top_window().Button2.click()
-            self._trader.wait(0.2)
 
+        for i in range(3):
+            # 点击保存按钮
+            top_win = self._trader.app.top_window()
+            save_btn_ctrl = top_win.child_window(title="保存(&S)", class_name="Button")
+            if save_btn_ctrl.exists(timeout=0.1):
+                save_btn_ctrl.click()
+                self._trader.wait(0.2)
+
+            # 检测窗口是否还存在
+            if not self._trader.is_exist_pop_dialog():
+                break
+
+        # 解析文件
+        if not os.path.exists(temp_path):
+            raise Exception("save xls failed")
         data = self._format_grid_data(temp_path)
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        os.remove(temp_path)
         return data
 
     def _format_grid_data(self, data: str) -> List[Dict]:

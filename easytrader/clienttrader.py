@@ -467,7 +467,8 @@ class ClientTrader(IClientTrader):
         self._type_edit_control_keys(self._config.TRADE_SECURITY_CONTROL_ID, code)
 
         # wait security input finish
-        self.wait(0.1)
+        # 延迟久一点， 点击过快， 会导致客户端异常
+        time.sleep(0.3)
 
         if self.is_exist_pop_dialog():
             w = self._app.top_window()
@@ -477,12 +478,12 @@ class ClientTrader(IClientTrader):
                     btn = w.child_window(title_re="""深圳.*""", class_name="Button")
                     if btn.exists(timeout=0.1):
                         btn.click()
-                        self.wait(0.2)
+                        time.sleep(0.2)
                 if security.lower().startswith("sh"):
                     btn = w.child_window(title_re="""上海.*""", class_name="Button")
                     if btn.exists(timeout=0.1):
                         btn.click()
-                        self.wait(0.2)
+                        time.sleep(0.2)
         else:
             # 设置交易所
             if security.lower().startswith("sz"):
@@ -490,7 +491,8 @@ class ClientTrader(IClientTrader):
             if security.lower().startswith("sh"):
                 self._set_stock_exchange_type("上海Ａ股")
 
-        self.wait(0.1)
+        # 延迟久一点， 点击过快， 会导致客户端异常
+        time.sleep(0.3)
 
         self._type_edit_control_keys(
             self._config.TRADE_PRICE_CONTROL_ID,
