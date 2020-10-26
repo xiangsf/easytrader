@@ -2,6 +2,7 @@
 import abc
 import io
 import os
+import time
 import tempfile
 from io import StringIO
 from typing import TYPE_CHECKING, Dict, List, Optional
@@ -63,8 +64,10 @@ class BaseStrategy(IGridStrategy):
                 grid = self._trader.main
             if grid.has_style(win32defines.WS_MINIMIZE):  # if minimized
                 ShowWindow(grid.wrapper_object(), 9)  # restore window state
+                time.sleep(0.2)
             else:
                 SetForegroundWindow(grid.wrapper_object())  # bring to front
+                time.sleep(0.2)
         except:
             pass
 
@@ -167,7 +170,6 @@ class Xls(BaseStrategy):
     """
     通过将 Grid 另存为 xls 文件再读取的方式获取 grid 内容
     """
-
     def __init__(self, tmp_folder: Optional[str] = None):
         """
         :param tmp_folder: 用于保持临时文件的文件夹
@@ -178,15 +180,32 @@ class Xls(BaseStrategy):
     def get(self, control_id: int) -> List[Dict]:
         grid = self._get_grid(control_id)
 
-        # ctrl+s 保存 grid 内容为 xls 文件
-        self._set_foreground(grid)  # setFocus buggy, instead of SetForegroundWindow
-        grid.type_keys("^s", set_foreground=False)
-        count = 10
-        while count > 0:
-            if self._trader.is_exist_pop_dialog():
+        # 这里需要延时等待
+        is_ok = False
+        for i in range(5):
+            # ctrl+s 保存 grid 内容为 xls 文件
+            self._set_foreground(grid)  # setFocus buggy, instead of SetForegroundWindow
+            grid.type_keys("^s", set_foreground=False)
+            time.sleep(0.2)
+
+            for j in range(3):
+                if self._trader.is_exist_pop_dialog():
+                    top_win = self._trader.app.top_window()
+                    edit_ctrl = top_win.child_window(class_name="Edit")
+                    static_ctrl = top_win.child_window(title="保存在(&I):", class_name="Static")
+                    # 这里要检查特定的两个控件是否存在
+                    if edit_ctrl.exists(timeout=0.2) and static_ctrl.exists(timeout=0.2):
+                        is_ok = True
+                        break
+                self.wait(0.2)
+            if is_ok:
                 break
-            self._trader.wait(0.2)
-            count -= 1
+            else:
+                self.wait(0.4)
+                #w = self._trader.app.top_window()
+                #w.dump_tree()
+        if not is_ok:
+            raise Exception("save xls failed")
 
         temp_path = tempfile.mktemp(suffix=".xls", dir=self.tmp_folder)
         self._set_foreground(self._trader.app.top_window())
