@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import abc
 import io
+import os
 import tempfile
 from io import StringIO
 from typing import TYPE_CHECKING, Dict, List, Optional
@@ -200,7 +201,10 @@ class Xls(BaseStrategy):
             self._trader.app.top_window().Button2.click()
             self._trader.wait(0.2)
 
-        return self._format_grid_data(temp_path)
+        data = self._format_grid_data(temp_path)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return data
 
     def _format_grid_data(self, data: str) -> List[Dict]:
         with open(data, encoding="gbk", errors="replace") as f:

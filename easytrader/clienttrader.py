@@ -20,6 +20,8 @@ from easytrader.log import logger
 from easytrader.refresh_strategies import IRefreshStrategy
 from easytrader.utils.misc import file2dict
 from easytrader.utils.perf import perf_clock
+from easytrader.utils.win_gui import SetForegroundWindow, ShowWindow, win32defines
+
 
 if not sys.platform.startswith("darwin"):
     import pywinauto
@@ -124,9 +126,13 @@ class ClientTrader(IClientTrader):
 
     @property
     def balance(self):
-        self._switch_left_menus(["查询[F4]", "资金股票"])
-
-        return self._get_balance_from_statics()
+        for i in range(3):
+            try:
+                self._switch_left_menus(["查询[F4]", "资金股票"])
+                return self._get_balance_from_statics()
+            except:
+                logger.exception("balance error")
+                self.wait(5)
 
     def _init_toolbar(self):
         self._toolbar = self._main.child_window(class_name="ToolbarWindow32")
@@ -134,18 +140,21 @@ class ClientTrader(IClientTrader):
     def _get_balance_from_statics(self):
         result = {}
         for key, control_id in self._config.BALANCE_CONTROL_ID_GROUP.items():
-            result[key] = float(
-                self._main.child_window(
+            text_val = self._main.child_window(
                     control_id=control_id, class_name="Static"
                 ).window_text()
-            )
+            result[key] = float(text_val)
         return result
 
     @property
     def position(self):
-        self._switch_left_menus(["查询[F4]", "资金股票"])
-
-        return self._get_grid_data(self._config.COMMON_GRID_CONTROL_ID)
+        for i in range(3):
+            try:
+                self._switch_left_menus(["查询[F4]", "资金股票"])
+                return self._get_grid_data(self._config.COMMON_GRID_CONTROL_ID)
+            except:
+                logger.exception("position error")
+                self.wait(5)
 
     @property
     def today_entrusts(self):
@@ -190,10 +199,16 @@ class ClientTrader(IClientTrader):
             # 点击是 按钮
             w = self._app.top_window()
             if w is not None:
-                btn = w["是(Y)"]
-                if btn is not None:
+                #w.dump_tree()
+                btn = w.child_window(title="确定", class_name="Button")
+                if btn.exists(timeout=0.5):
                     btn.click()
                     self.wait(0.2)
+                else:
+                    btn = w.child_window(title="是(&Y)", class_name="Button")
+                    if btn.exists(timeout=0.5):
+                        btn.click()
+                        self.wait(0.2)
 
         # 如果出现了确认窗口
         self.close_pop_dialog()
@@ -454,11 +469,26 @@ class ClientTrader(IClientTrader):
         # wait security input finish
         self.wait(0.1)
 
-        # 设置交易所
-        if security.lower().startswith("sz"):
-            self._set_stock_exchange_type("深圳Ａ股")
-        if security.lower().startswith("sh"):
-            self._set_stock_exchange_type("上海Ａ股")
+        if self.is_exist_pop_dialog():
+            w = self._app.top_window()
+            if w is not None:
+                w.dump_tree()
+                if security.lower().startswith("sz"):
+                    btn = w.child_window(title_re="""深圳.*""", class_name="Button")
+                    if btn.exists(timeout=0.1):
+                        btn.click()
+                        self.wait(0.2)
+                if security.lower().startswith("sh"):
+                    btn = w.child_window(title_re="""上海.*""", class_name="Button")
+                    if btn.exists(timeout=0.1):
+                        btn.click()
+                        self.wait(0.2)
+        else:
+            # 设置交易所
+            if security.lower().startswith("sz"):
+                self._set_stock_exchange_type("深圳Ａ股")
+            if security.lower().startswith("sh"):
+                self._set_stock_exchange_type("上海Ａ股")
 
         self.wait(0.1)
 
@@ -519,6 +549,7 @@ class ClientTrader(IClientTrader):
     @perf_clock
     def _switch_left_menus(self, path, sleep=0.2):
         self.close_pop_dialog()
+        self._set_foreground()
         self._get_left_menus_handle().get_item(path).select()
         self._app.top_window().type_keys('{ESC}')
         self._app.top_window().type_keys('{F5}')
@@ -526,6 +557,7 @@ class ClientTrader(IClientTrader):
 
     def _switch_left_menus_by_shortcut(self, shortcut, sleep=0.5):
         self.close_pop_dialog()
+        self._set_foreground()
         self._app.top_window().type_keys(shortcut)
         self.wait(sleep)
 
@@ -577,6 +609,17 @@ class ClientTrader(IClientTrader):
                 return result
         return {"message": "success"}
 
+    def _set_foreground(self):
+        try:
+            w = self._main
+            if w.has_style(win32defines.WS_MINIMIZE):  # if minimized
+                ShowWindow(w.wrapper_object(), 9)  # restore window state
+                self.wait(0.2)
+            else:
+                SetForegroundWindow(w.wrapper_object())  # bring to front
+                self.wait(0.2)
+        except:
+            pass
 
 class BaseLoginClientTrader(ClientTrader):
     @abc.abstractmethod
