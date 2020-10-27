@@ -473,7 +473,7 @@ class ClientTrader(IClientTrader):
         if self.is_exist_pop_dialog():
             w = self._app.top_window()
             if w is not None:
-                w.dump_tree()
+                #w.dump_tree()
                 if security.lower().startswith("sz"):
                     btn = w.child_window(title_re="""深圳.*""", class_name="Button")
                     if btn.exists(timeout=0.1):
