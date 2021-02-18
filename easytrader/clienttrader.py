@@ -496,7 +496,7 @@ class ClientTrader(IClientTrader):
 
         self._type_edit_control_keys(
             self._config.TRADE_PRICE_CONTROL_ID,
-            easyutils.round_price_by_code(price, code),
+            '{:.2f}'.format(price),
         )
         self._type_edit_control_keys(
             self._config.TRADE_AMOUNT_CONTROL_ID, str(int(amount))
